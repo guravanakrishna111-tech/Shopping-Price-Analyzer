@@ -3,3 +3,12 @@ flask-cors
 requests
 gunicorn
 pandas
+scikit-learn
+numpy
+matplotlib
+seaborn
+sqlalchemy
+psycopg2-binary
+flask-migrate
+flask-sqlalchemy
+flask-marshmallow
