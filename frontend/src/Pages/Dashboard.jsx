@@ -4,7 +4,7 @@ import PriceChart from '../Compoonents/PriceChart';
 import Recommendations from '../Compoonents/Recommendations';
 import '../styles/Dashboard.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000';
+const API = import.meta.env.VITE_API_URL;
 
 const emptyResult = {
   product: null,
@@ -63,7 +63,7 @@ const Dashboard = ({ onSaveSearch, onToggleWishlist, searchHistory, user, wishli
     setWishlistMessage('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/search?product=${encodeURIComponent(trimmedQuery)}`);
+      const response = await fetch(`${API}/search?product=${encodeURIComponent(trimmedQuery)}&platform=amazon`);
       const data = await response.json();
 
       if (!response.ok) {
