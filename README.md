@@ -3,7 +3,8 @@
 A full-stack web application that analyzes product prices, visualizes trends, and provides smart recommendations using real-time data from e-commerce platforms.
 
 ---
-
+Live Demo:
+   https://shopping-price-analyzer-dxgro4dy2.vercel.app/
 ## 🚀 Features
 
 - 📈 **Price Trend Analysis**  
@@ -93,24 +94,21 @@ Create a .env file in Backend:
 RAPIDAPI_KEY=your_api_key_here
 RAPIDAPI_HOST=your_api_host_here
 📊 How It Works
-User searches for a product
-Frontend sends request to Flask backend
-Backend fetches real-time data via APIs
-Data is processed and returned
-Frontend displays:
-Price trend graph
-Product recommendations
-Images and purchase links
+      User searches for a product
+      Frontend sends request to Flask backend
+      Backend fetches real-time data via APIs
+      Data is processed and returned
+      Frontend displays:
+      Price trend graph
+      Product recommendations
+      Images and purchase links
 🎯 Future Enhancements
-📉 Price prediction using Machine Learning
-🔔 Price drop alerts
-❤️ Wishlist functionality
-🔄 Multi-platform price comparison
-📱 Mobile app version
-📸 Screenshots
+      📉 Price prediction using Machine Learning
+      🔔 Price drop alerts
+      ❤️ Wishlist functionality
+      🔄 Multi-platform price comparison
+      📱 Mobile app version
 
-Add screenshots of your project here
 
 🧑‍💻 Author
-
-Krishna
+      Krishna
