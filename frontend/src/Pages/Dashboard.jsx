@@ -4,7 +4,7 @@ import PriceChart from '../Compoonents/PriceChart';
 import Recommendations from '../Compoonents/Recommendations';
 import '../styles/Dashboard.css';
 
-const API = import.meta.env.VITE_API_URL;
+const API = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000').replace(/\/$/, '');
 
 const emptyResult = {
   product: null,
@@ -64,10 +64,27 @@ const Dashboard = ({ onSaveSearch, onToggleWishlist, searchHistory, user, wishli
 
     try {
       const response = await fetch(`${API}/search?product=${encodeURIComponent(trimmedQuery)}&platform=amazon`);
-      const data = await response.json();
+      const responseText = await response.text();
+      let data = null;
+
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText);
+        } catch {
+          if (!response.ok) {
+            throw new Error(responseText.trim() || 'Search failed. Please confirm the backend is running and try again.');
+          }
+
+          throw new Error('The backend returned an invalid response. Please confirm the API is running correctly and try again.');
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(data.error || 'Search failed. Please confirm the backend is running and try again.');
+        throw new Error(data?.error || responseText.trim() || 'Search failed. Please confirm the backend is running and try again.');
+      }
+
+      if (!data || typeof data !== 'object') {
+        throw new Error('The backend returned an empty response. Please confirm the API is running correctly and try again.');
       }
 
       if (!data.priceData?.length) {

@@ -91,7 +91,7 @@ npm run dev
 Create a .env file in Backend:
 
 RAPIDAPI_KEY=your_api_key_here
-RAPIDAPI_HOST=your_api_host_here
+RAPIDAPI_HOST=real-time-amazon-data.p.rapidapi.com
 📊 How It Works
 User searches for a product
 Frontend sends request to Flask backend

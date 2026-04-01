@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 
-RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "realtime-amazon-data.p.rapidapi.com")
+RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST", "real-time-amazon-data.p.rapidapi.com")
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "dfe030ca5cmsh6af88aaab3854d3p12faa3jsn228bbc0607e2")
 AMAZON_COUNTRY = os.getenv("AMAZON_COUNTRY", "in")
 BASE_URL = f"https://{RAPIDAPI_HOST}"
@@ -20,7 +20,7 @@ URL_PATTERNS = (
     re.compile(r"/product/([A-Z0-9]{10})", re.IGNORECASE),
     re.compile(r"/(?:[^/]+/)?dp/([A-Z0-9]{10})", re.IGNORECASE),
 )
-AMAZON_HOST_MARKERS = ("amazon.", "amzn.")
+AMAZON_HOST_MARKERS = ("amazon.", "amzn.", "a.co")
 REDIRECT_PARAM_KEYS = ("asin", "url", "u", "redirect", "redirecturl", "path", "destination", "dest")
 SEARCH_PARAM_KEYS = ("k", "keyword", "keywords", "field-keywords")
 COUNTRY_DOMAIN_MAP = {
@@ -110,6 +110,11 @@ def _is_amazon_host(hostname):
     return any(marker in hostname for marker in AMAZON_HOST_MARKERS)
 
 
+def _is_short_amazon_host(hostname):
+    hostname = (hostname or "").lower()
+    return hostname == "a.co" or "amzn." in hostname
+
+
 def amazon_domain_for_country(country):
     return COUNTRY_DOMAIN_MAP.get((country or AMAZON_COUNTRY).lower(), COUNTRY_DOMAIN_MAP[AMAZON_COUNTRY])
 
@@ -191,7 +196,7 @@ def _resolve_short_url_asin(url):
         return None
 
     parsed = urlparse(url)
-    if "amzn." not in parsed.netloc.lower():
+    if not _is_short_amazon_host(parsed.netloc):
         return None
 
     request = Request(
@@ -246,6 +251,9 @@ def extract_search_keyword(value):
                 if nested_keyword:
                     return nested_keyword
 
+        if _is_short_amazon_host(parsed.netloc):
+            return ""
+
         path_segments = [segment for segment in parsed.path.split("/") if segment]
         cleaned_segments = [
             segment.replace("-", " ")
@@ -279,14 +287,19 @@ def _cached_api_get(endpoint, query_string):
 
     try:
         with urlopen(request, timeout=25) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+            raw_body = response.read().decode("utf-8", errors="ignore")
+            payload = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        raise AmazonAPIError(
+            f"Amazon API returned invalid JSON response: {raw_body[:240]}"
+        ) from exc
     except HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="ignore")
         raise AmazonAPIError(f"Amazon API request failed with status {exc.code}: {error_body}") from exc
     except URLError as exc:
         raise AmazonAPIError(f"Amazon API request failed: {exc.reason}") from exc
 
-    if payload.get("status") not in (None, "success"):
+    if str(payload.get("status") or "").upper() not in ("", "SUCCESS", "OK"):
         message = payload.get("message") or payload.get("error") or "Amazon API returned an unexpected response."
         raise AmazonAPIError(message)
 
@@ -402,25 +415,39 @@ def normalize_detail_item(payload, country=AMAZON_COUNTRY):
 
 
 def search_products(keyword, country=AMAZON_COUNTRY, page=1):
-    payload = _api_get("product-search", keyword=keyword, country=country, page=page)
-    items = payload.get("details") or payload.get("products") or []
+    payload = _api_get(
+        "search",
+        query=keyword,
+        country=str(country).upper(),
+        page=page,
+        sort_by="RELEVANCE",
+        product_condition="ALL",
+    )
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    items = data.get("details") or data.get("products") or []
     normalized_items = [normalize_search_item(item, country=country) for item in items]
     return {
         "items": [item for item in normalized_items if item.get("asin")],
-        "total_results": int(payload.get("totalResultsCount") or len(items)),
-        "currency": payload.get("currency") or "USD",
-        "domain": payload.get("domain") or "https://www.amazon.com",
+        "total_results": int(data.get("totalResultsCount") or data.get("total_products") or len(items)),
+        "currency": data.get("currency") or "USD",
+        "domain": data.get("domain") or "https://www.amazon.com",
     }
 
 
 def get_product_details(asin, country=AMAZON_COUNTRY):
-    payload = _api_get("product-details", asin=asin, country=country)
-    return normalize_detail_item(payload, country=country)
+    payload = _api_get("product-details", asin=asin, country=str(country).upper())
+    payload = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    normalized = normalize_detail_item(payload, country=country)
+    normalized["asin"] = normalized.get("asin") or _clean_text(asin).upper()
+    if normalized["asin"] and not normalized.get("url"):
+        normalized["url"] = f"https://{amazon_domain_for_country(country)}/dp/{normalized['asin']}"
+    return normalized
 
 
 def get_best_sellers(category, country=AMAZON_COUNTRY, page=1):
-    payload = _api_get("best-sellers", category=category, country=country, page=page)
-    items = payload.get("products") or payload.get("details") or []
+    payload = _api_get("best-sellers", category=category, country=str(country).upper(), page=page)
+    data = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    items = data.get("products") or data.get("details") or []
     normalized = []
     for item in items:
         normalized.append(
